@@ -4,28 +4,36 @@ import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { Pokemon, getPokmonDetails } from '../../api/pokemonapi'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
-import { Colors } from 'react-native/Libraries/NewAppScreen'
+import { useQuery } from '@tanstack/react-query'
+import { storage } from '../../api/mmkv'
 
 const Page = () => {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const [details, setDetails] = useState<Pokemon>()
   const navigation = useNavigation()
-  const [isFavorite, setIsFavorite] = useState(false)
+  const [isFavorite, setIsFavorite] = useState<boolean>(
+    storage.getString(`favorite-${id}`) === 'true'
+  )
 
-  useEffect(() => {
-    const load = async () => {
-      const details = await getPokmonDetails(id!)
-      setDetails(details)
+  // useEffect(() => {
+  //   const load = async () => {
+  //     const isFavorite = await AsyncStorage.getItem(`favorite-${id}`)
+  //     setIsFavorite(isFavorite === 'true')
+  //   }
+
+  //   load()
+  // }, [id])
+
+  const pokemonQuery = useQuery({
+    queryKey: ['pokemon', id],
+    queryFn: () => getPokmonDetails(id!),
+    keepPreviousDate: true,
+    refetchOnMount: false,
+    onSuccess: (data: Pokemon) => {
       navigation.setOptions({
-        title: details.name.charAt(0).toUpperCase() + details.name.slice(1),
+        title: data.name.charAt(0).toUpperCase() + data.name.slice(1),
       })
-
-      const isFavorite = await AsyncStorage.getItem(`favorite-${id}`)
-      setIsFavorite(isFavorite === 'true')
-    }
-
-    load()
-  }, [id])
+    },
+  })
 
   useEffect(() => {
     navigation.setOptions({
@@ -42,24 +50,26 @@ const Page = () => {
   }, [isFavorite])
 
   const toggleFavorite = async () => {
-    await AsyncStorage.setItem(`favorite-${id}`, !isFavorite ? 'true' : 'false')
+    storage.set(`favorite-${id}`, !isFavorite ? 'true' : 'flalse')
     setIsFavorite(!isFavorite)
   }
 
   return (
     <View style={{ padding: 10 }}>
-      {details && (
+      {pokemonQuery.data && (
         <>
           <View style={[styles.card, { alignItems: 'center' }]}>
             <Image
-              source={{ uri: details.sprites.front_default }}
+              source={{ uri: pokemonQuery.data.sprites.front_default }}
               style={{ width: 250, height: 240 }}
             />
-            <Text style={styles.name}>#{`${details.id} ${details.name}`}</Text>
+            <Text style={styles.name}>
+              #{`${pokemonQuery.data.id} ${pokemonQuery.data.name}`}
+            </Text>
           </View>
           <View style={styles.card}>
             <Text style={{ fontWeight: 'bold', fontSize: 16 }}>Stats</Text>
-            {details.stats.map((item: any) => (
+            {pokemonQuery.data.stats.map((item: any) => (
               <Text key={item.stat.name}>
                 {item.stat.name}: {item.base_stat}
               </Text>

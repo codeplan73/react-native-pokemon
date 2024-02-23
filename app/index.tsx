@@ -1,41 +1,53 @@
 import {
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Link } from 'expo-router'
-import { Pokemon, getPokmon } from '../api/pokemonapi'
+import { useQuery } from '@tanstack/react-query'
+import { Pokemon, getPokemon } from '../api/pokemonapi'
+import { FlashList, ListRenderItem } from '@shopify/flash-list'
 
 const Page = () => {
-  const [pokemon, setPokemon] = useState<Pokemon[]>([])
-  useEffect(() => {
-    const load = async () => {
-      const result = await getPokmon()
-      setPokemon(result)
-    }
+  const pokemonQuery = useQuery({
+    queryKey: ['pokemon'],
+    queryFn: () => getPokemon(),
+  })
 
-    load()
-  }, [])
+  const renderItem: ListRenderItem<Pokemon> = ({ item }) => (
+    <Link key={item.id} href={`/(pokemon)/${item.id}`} asChild>
+      <TouchableOpacity>
+        <View style={styles.item}>
+          <Image source={{ uri: item.image }} style={styles.preview} />
+          <Text style={styles.itemText}>{item.name}</Text>
+          <Ionicons name="chevron-forward" size={24} />
+        </View>
+      </TouchableOpacity>
+    </Link>
+  )
 
   return (
-    <ScrollView>
-      {pokemon.map((p) => (
-        <Link key={p.id} href={`/(pokemon)/${p.id}`} asChild>
-          <TouchableOpacity>
-            <View style={styles.item}>
-              <Image source={{ uri: p.image }} style={styles.preview} />
-              <Text style={styles.itemText}>{p.name}</Text>
-              <Ionicons name="chevron-forward" size={24} />
-            </View>
-          </TouchableOpacity>
-        </Link>
-      ))}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      {pokemonQuery.isLoading && (
+        <ActivityIndicator style={{ marginTop: 30 }} />
+      )}
+
+      <FlashList
+        data={pokemonQuery.data}
+        renderItem={renderItem}
+        estimatedItemSize={100}
+        ItemSeparatorComponent={() => (
+          <View
+            style={{ height: 1, width: '100%', backgroundColor: '#dfdfdf' }}
+          />
+        )}
+      />
+    </View>
   )
 }
 
